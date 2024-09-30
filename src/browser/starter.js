@@ -1241,6 +1241,35 @@ V86.prototype.mount_fs = async function(path, baseurl, basefs)
 };
 
 /**
+ * Mount a local user folder (via FilesystemAPI) to the current filesystem.
+ * @param {string} path Path for the mount point
+ * @param {FileSystemDirectoryHandle} handler The folder handler to retrieve files later on
+ * @param {object} basefs The rootfs definition with the existing data in the folder
+ */
+V86.prototype.mount_local_folder_fs = async function(path, handler, basefs) {
+    let file_storage = new LocalFileStorage(handler);
+
+    const newfs = new FS(file_storage, this.fs9p.qidcounter);
+    newfs.load_from_json(basefs);
+    
+    const idx = this.fs9p.Mount(path, newfs);
+
+    if(idx === -ENOENT)
+    {
+        throw new FileNotFoundError();
+    }
+    else if(idx === -EEXIST)
+    {
+        throw new FileExistsError();
+    }
+    else if(idx < 0)
+    {
+        dbg_assert(false, "Unexpected error code: " + (-idx));
+        throw new Error("Failed to mount. Error number: " + (-idx));
+    }
+} 
+
+/**
  * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
  * been initialized.
  *
