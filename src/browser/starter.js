@@ -58,7 +58,7 @@
  *
  * - `screen Object` (No screen) - An object with the following properties:
  *   - `container HTMLElement` - An HTMLElement, see above.
- *   - `disable_autoscale boolean` (false) - Disable automatic scaling of small resolutions.
+ *   - `scale` (1) - Set initial scale_x and scale_y, if 0 disable automatic upscaling and dpi-adaption
  *
  * ***
  *
@@ -101,7 +101,7 @@
       disable_keyboard: (boolean|undefined),
       wasm_fn: (Function|undefined),
       screen: ({
-          disable_autoscale: (boolean|undefined),
+          scale: (number|undefined),
       } | undefined),
     }} options
  * @constructor
@@ -1385,7 +1385,7 @@ V86.prototype.wait_until_vga_screen_contains = function(text)
         function put_char(args)
         {
             const [row, col, char] = args;
-            changed_rows.add(col);
+            changed_rows.add(row);
         }
 
         const check = () =>
