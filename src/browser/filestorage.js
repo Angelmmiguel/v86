@@ -78,6 +78,140 @@ MemoryFileStorage.prototype.uncache = function(sha256sum)
     this.filedata.delete(sha256sum);
 };
 
+
+/**
+ * @constructor
+ * @param {FileSystemDirectoryHandle} dirHandler Directory handler from the browser API.
+ * @param {number} [userId=1000] The user ID when mounting the files
+ * @param {number} [groupId=1000] The group ID when mounting the files
+ * @implements {FileStorageInterface}
+ */
+function LocalFileStorage(dirHandler, userId = 1000, groupId = 1000)
+{
+    // Store the handler so we can access files later
+    this.handler = dirHandler;
+    this.userId = userId;
+    this.groupId = groupId;
+}
+
+/**
+ * Iterate the files in a folder to build the filesystem JSON representation
+ *
+ * @param {FileSystemDirectoryHandle} handler Current folder handler
+ * @param {object[]} fs The final filesystem. This method pushes entries into it
+ * @param {number} size Current size in the folder
+ * @param {string} basePath Base path for all the files in this folder
+ * @return {object} The filesystem representation in current folder and the size
+ */
+LocalFileStorage.prototype._iterateDirectory() = async function(handler, fs, size, basePath) {
+    for await (const entry of dir.values())
+    {
+        if (entry.kind === "file")
+        {
+            let file = await entry.getFile();
+            fs.push(
+                [
+                    file.name,
+                    file.size,
+                    Math.round(file.lastModified / 1000),
+                    33188, // File permissions
+                    this.userId,
+                    this.groupId,
+                    `${basePath}/${file.name}`
+                ]
+            );
+        } else
+        {
+            let newPath = `${basePath}/${entry.name}`;
+            let iter = await this._iterateDirectory(entry, [], 0, newPath);
+            fs.push(
+                [
+                    entry.name,
+                    4096, // Filesize for folders
+                    Math.round(Date.now() / 1000),
+                    16877, // Folder permissions
+                    this.userId,
+                    this.groupId,
+                    iter.fs,
+                ]
+            );
+
+            size += iter.size + 4096;
+        }
+    }
+
+    return { fs, size };
+}
+
+/**
+ * Build the rootfs object based on the given handler. This file follows the format
+ * from the fs2json script in the v86 repository.
+ *
+ * @param {FileSystemDirectoryHandle} handler The folder handler from the user action.
+ * @return {object} The Rootfs objevt following the fs2json format
+ */
+LocalFileStorage.prototype.buildRootFs = async function(handler)
+{
+    let { fs, size } = await this._iterateDirectory(handler, [], 0, "");
+
+    return {
+        fsroot: fs,
+        size,
+        version: 3
+    };
+}
+
+LocalFileStorage.prototype.read = async function(sha256sum, offset, count)
+{
+    let handler = this.handler;
+    let content;  
+    let folders = sha256sum.split("/");
+    let filePath = folders.pop();
+
+    for (let i = 0; i < folders.length; i++)
+    {
+        let folder = folders[i];
+
+        if (folder != null && folder != "")
+        {
+            try
+            {
+                handler = await handler.getDirectoryHandle(folder, { mode: "read" });
+            } catch (err) {
+                return null;
+            }
+        }
+    }
+
+    try
+    {
+        let fileHandler = await handler.getFileHandle(filePath, { mode: "read" });
+        let file = await fileHandler.getFile();
+
+        // Retrieve the data
+        let chunk = file.slice(offset, offset + count);
+        let chunkBuf = await chunk.arrayBuffer();
+
+        return new Uint8Array(chunkBuf);
+    } catch (err) {
+        console.error("Error retrieving the file content from the local directory folder: ", err);
+        return null;
+    }
+}
+
+
+LocalFileStorage.prototype.cache = function(sha256sum, data)
+{
+    // TODO: Implement caching
+    return Promise.resolve();
+}
+
+
+LocalFileStorage.prototype.uncache = function(sha256sum)
+{
+  // TODO: Implement uncaching
+}
+
 /**
  * @constructor
  * @implements {FileStorageInterface}
