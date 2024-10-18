@@ -1250,13 +1250,13 @@ V86.prototype.mount_fs = async function(path, baseurl, basefs)
  * Mount a local user folder (via FilesystemAPI) to the current filesystem.
  * @param {string} path Path for the mount point
  * @param {FileSystemDirectoryHandle} handler The folder handler to retrieve files later on
- * @param {object} basefs The rootfs definition with the existing data in the folder
  */
-V86.prototype.mount_local_folder_fs = async function(path, handler, basefs) {
-    let file_storage = new LocalFileStorage(handler);
+V86.prototype.mount_local_folder_fs = async function(path, handler, userId = 1000, groupId = 1000) {
+    const file_storage = new LocalFileStorage(handler, userId, groupId);
+    const rootfs = await file_storage.buildRootFs(handler);
 
     const newfs = new FS(file_storage, this.fs9p.qidcounter);
-    newfs.load_from_json(basefs);
+    newfs.load_from_json(rootfs);
     
     const idx = this.fs9p.Mount(path, newfs);
 

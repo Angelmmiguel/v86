@@ -98,13 +98,13 @@ function LocalFileStorage(dirHandler, userId = 1000, groupId = 1000)
  * Iterate the files in a folder to build the filesystem JSON representation
  *
  * @param {FileSystemDirectoryHandle} handler Current folder handler
- * @param {object[]} fs The final filesystem. This method pushes entries into it
+ * @param {Array<Object>} fs The final filesystem. This method pushes entries into it
  * @param {number} size Current size in the folder
  * @param {string} basePath Base path for all the files in this folder
- * @return {object} The filesystem representation in current folder and the size
+ * @return {Object} The filesystem representation in current folder and the size
  */
-LocalFileStorage.prototype._iterateDirectory() = async function(handler, fs, size, basePath) {
-    for await (const entry of dir.values())
+LocalFileStorage.prototype._iterateDirectory = async function(handler, fs, size, basePath) {
+    for await (const entry of handler.values())
     {
         if (entry.kind === "file")
         {
@@ -148,7 +148,7 @@ LocalFileStorage.prototype._iterateDirectory() = async function(handler, fs, siz
  * from the fs2json script in the v86 repository.
  *
  * @param {FileSystemDirectoryHandle} handler The folder handler from the user action.
- * @return {object} The Rootfs objevt following the fs2json format
+ * @return {Object} The Rootfs objevt following the fs2json format
  */
 LocalFileStorage.prototype.buildRootFs = async function(handler)
 {
@@ -164,7 +164,6 @@ LocalFileStorage.prototype.buildRootFs = async function(handler)
 LocalFileStorage.prototype.read = async function(sha256sum, offset, count)
 {
     let handler = this.handler;
-    let content;  
     let folders = sha256sum.split("/");
     let filePath = folders.pop();
 
