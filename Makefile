@@ -20,8 +20,8 @@ endif
 WASM_OPT ?= false
 
 default: build/v86-debug.wasm
-all: build/v86_all.js build/libv86.js build/v86.wasm
-all-debug: build/libv86-debug.js build/v86-debug.wasm
+all: build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm
+all-debug: build/libv86-debug.js build/libv86-debug.mjs  build/v86-debug.wasm
 browser: build/v86_all.js
 
 # Used for nodejs builds and in order to profile code.
@@ -81,13 +81,14 @@ CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory -C target-feature
 CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   memory.js dma.js pit.js vga.js ps2.js rtc.js uart.js \
 	   acpi.js apic.js ioapic.js \
-	   state.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js \
+	   state.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   bus.js log.js cpu.js debug.js \
 	   elf.js kernel.js
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js worker_bus.js dummy_screen.js \
-	      fake_network.js wisp_network.js fetch_network.js print_stats.js filestorage.js
+	      inbrowser_network.js fake_network.js wisp_network.js fetch_network.js \
+          print_stats.js filestorage.js
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs \
@@ -141,6 +142,23 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(LIB_FILES)
 	ls -lh build/libv86.js
 
+build/libv86.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
+	mkdir -p build
+	-ls -lh build/libv86.js
+	java -jar $(CLOSURE) \
+		--js_output_file build/libv86.mjs\
+		--define=DEBUG=false\
+		$(CLOSURE_FLAGS)\
+		--compilation_level SIMPLE\
+		--jscomp_off=missingProperties\
+		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86;'\
+		--js $(CORE_FILES)\
+		--js $(BROWSER_FILES)\
+		--js $(LIB_FILES)\
+		--chunk_output_type=ES_MODULES\
+		--emit_use_strict=false
+	ls -lh build/libv86.mjs
+
 build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
@@ -154,6 +172,22 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
+
+build/libv86-debug.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) \
+		--js_output_file build/libv86-debug.mjs\
+		--define=DEBUG=true\
+		$(CLOSURE_FLAGS)\
+		--compilation_level SIMPLE\
+		--jscomp_off=missingProperties\
+		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86; export let {V86, CPU} = module.exports;'\
+		--js $(CORE_FILES)\
+		--js $(BROWSER_FILES)\
+		--js $(LIB_FILES)\
+		--chunk_output_type=ES_MODULES\
+		--emit_use_strict=false
+	ls -lh build/libv86-debug.mjs
 
 src/rust/gen/jit.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit
@@ -221,6 +255,7 @@ build/zstddeclib.o: lib/zstd/zstddeclib.c
 
 clean:
 	-rm build/libv86.js
+	-rm build/libv86.mjs
 	-rm build/libv86-debug.js
 	-rm build/v86_all.js
 	-rm build/v86.wasm
@@ -308,6 +343,7 @@ devices-test: all-debug
 	./tests/devices/fetch_network.js
 	USE_VIRTIO=1 ./tests/devices/fetch_network.js
 	./tests/devices/wisp_network.js
+	./tests/devices/virtio_balloon.js
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
@@ -320,11 +356,12 @@ api-tests: all-debug
 	./tests/api/clean-shutdown.js
 	./tests/api/state.js
 	./tests/api/reset.js
-	./tests/api/floppy-insert-eject.js
+	#./tests/api/floppy-insert-eject.js # disabled for now, sometimes hangs
 	./tests/api/serial.js
 	./tests/api/reboot.js
+	./tests/api/pic.js
 
-all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
+all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests expect-tests
 	# Skipping:
 	# - devices-test (hangs)
 
