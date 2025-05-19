@@ -118,24 +118,11 @@ else if(typeof Worker !== "undefined")
 {
     // XXX: This has a slightly lower throughput compared to window.postMessage
 
-    function the_worker()
-    {
-        let timeout;
-        globalThis.onmessage = function(e)
-        {
-            const t = e.data.t;
-            timeout = timeout && clearTimeout(timeout);
-            if(t < 1) postMessage(e.data.tick);
-            else timeout = setTimeout(() => postMessage(e.data.tick), t);
-        };
-    }
-
     v86.prototype.register_yield = function()
     {
-        const url = URL.createObjectURL(new Blob(["(" + the_worker.toString() + ")()"], { type: "text/javascript" }));
+        const url = new URL('./yield.js', import.meta.url);
         this.worker = new Worker(url);
         this.worker.onmessage = e => this.yield_callback(e.data);
-        URL.revokeObjectURL(url);
     };
 
     v86.prototype.yield = function(t, tick)

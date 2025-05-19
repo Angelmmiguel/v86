@@ -21,7 +21,7 @@ endif
 WASM_OPT ?= false
 
 default: build/v86-debug.wasm
-all: build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm build/libv86.d.mts
+all: build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm build/libv86.d.mts build/yield.js
 all-debug: build/libv86-debug.js build/libv86-debug.mjs build/v86-debug.wasm
 browser: build/v86_all.js
 
@@ -159,6 +159,9 @@ build/libv86.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--chunk_output_type=ES_MODULES\
 		--emit_use_strict=false
 	ls -lh build/libv86.mjs
+
+build/yield.js:
+	cp src/yield.js build/yield.js
 
 build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
