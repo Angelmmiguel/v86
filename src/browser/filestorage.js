@@ -86,7 +86,7 @@ MemoryFileStorage.prototype.uncache = function(sha256sum)
  * @param {number} [groupId=1000] The group ID when mounting the files
  * @implements {FileStorageInterface}
  */
-function LocalFileStorage(dirHandler, userId = 1000, groupId = 1000)
+export function LocalFileStorage(dirHandler, userId = 1000, groupId = 1000)
 {
     // Store the handler so we can access files later
     this.handler = dirHandler;

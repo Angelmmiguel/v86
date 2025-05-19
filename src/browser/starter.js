@@ -17,7 +17,7 @@ import { DummyScreenAdapter } from "./dummy_screen.js";
 import { SerialAdapter, SerialAdapterXtermJS } from "./serial.js";
 import { InBrowserNetworkAdapter } from "./inbrowser_network.js";
 
-import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
+import { MemoryFileStorage, ServerFileStorageWrapper, LocalFileStorage } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
 import { FS } from "../../lib/filesystem.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
