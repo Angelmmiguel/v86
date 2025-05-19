@@ -1,6 +1,6 @@
 CLOSURE_DIR=closure-compiler
 CLOSURE=$(CLOSURE_DIR)/compiler.jar
-TSUP=tsup
+TSUP=npx tsup
 NASM_TEST_DIR=./tests/nasm
 
 INSTRUCTION_TABLES=src/rust/gen/jit.rs src/rust/gen/jit0f.rs \
@@ -194,10 +194,9 @@ build/libv86.d.mts: $(TSUP) build/libv86.mjs
 	$(TSUP) --entry.libv86 ./src/browser/starter.js --dts --dts-only -d ./build --format esm
 	mv ./build/libv86.d.ts ./build/libv86.d.mts
 
-# Tsup requires to install TS at project level
+# Install dependencies for tsup
 $(TSUP):
 	npm install
-	npm install -g tsup@8.5.0
 
 src/rust/gen/jit.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit

@@ -16,6 +16,7 @@
   "repository": "github:copy/v86",
   "type": "module",
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "tsup": "^8.5.0"
   }
 }
