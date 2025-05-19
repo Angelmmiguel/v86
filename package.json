@@ -14,5 +14,8 @@
   ],
   "main": "build/libv86.mjs",
   "repository": "github:copy/v86",
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
 }

@@ -194,8 +194,9 @@ build/libv86.d.mts: $(TSUP) build/libv86.mjs
 	$(TSUP) --entry.libv86 ./src/browser/starter.js --dts --dts-only -d ./build --format esm
 	mv ./build/libv86.d.ts ./build/libv86.d.mts
 
+# Tsup requires to install TS at project level
 $(TSUP):
-	npm install -g typescript@5.8.3
+	npm install
 	npm install -g tsup@8.5.0
 
 src/rust/gen/jit.rs: $(JIT_DEPENDENCIES)
