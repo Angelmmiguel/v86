@@ -1,7 +1,9 @@
 import { dbg_assert } from "../log.js";
 
-/** @constructor */
-export var Connector = function(pair)
+/**
+ * @constructor
+ */
+export function Connector(pair)
 {
     this.listeners = {};
     this.pair = pair;

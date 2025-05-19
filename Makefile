@@ -1,5 +1,6 @@
 CLOSURE_DIR=closure-compiler
 CLOSURE=$(CLOSURE_DIR)/compiler.jar
+TSUP=tsup
 NASM_TEST_DIR=./tests/nasm
 
 INSTRUCTION_TABLES=src/rust/gen/jit.rs src/rust/gen/jit0f.rs \
@@ -20,7 +21,7 @@ endif
 WASM_OPT ?= false
 
 default: build/v86-debug.wasm
-all: build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm
+all: build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm build/libv86.d.mts
 all-debug: build/libv86-debug.js build/libv86-debug.mjs build/v86-debug.wasm
 browser: build/v86_all.js
 
@@ -188,6 +189,14 @@ build/libv86-debug.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--chunk_output_type=ES_MODULES\
 		--emit_use_strict=false
 	ls -lh build/libv86-debug.mjs
+
+build/libv86.d.mts: $(TSUP) build/libv86.mjs
+	$(TSUP) --entry.libv86 ./src/browser/starter.js --dts --dts-only -d ./build --format esm
+	mv ./build/libv86.d.ts ./build/libv86.d.mts
+
+$(TSUP):
+	npm install -g typescript@5.8.3
+	npm install -g tsup@8.5.0
 
 src/rust/gen/jit.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit

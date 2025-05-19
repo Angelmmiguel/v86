@@ -297,6 +297,9 @@ export function ByteQueue(size)
         }
     };
 
+    /**
+     * @type {function()}
+     */
     this.clear = function()
     {
         start = 0;
@@ -479,7 +482,7 @@ export function download(file_or_blob, name)
  * A simple 1d bitmap
  * @constructor
  */
-export var Bitmap = function(length_or_buffer)
+export function Bitmap(length_or_buffer)
 {
     if(typeof length_or_buffer === "number")
     {

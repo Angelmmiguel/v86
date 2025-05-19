@@ -47,7 +47,9 @@ export function SerialAdapter(element, bus)
     };
     this.init();
 
-
+    /**
+     * @type {function(string)}
+     */
     this.show_char = function(chr)
     {
         if(chr === "\x08")
@@ -72,6 +74,9 @@ export function SerialAdapter(element, bus)
         }
     };
 
+    /**
+     * @type {function()}
+     */
     this.update = function()
     {
         var now = Date.now();
@@ -103,6 +108,9 @@ export function SerialAdapter(element, bus)
         }
     };
 
+    /**
+     * @type {function()}
+     */ 
     this.render = function()
     {
         element.value = this.text;

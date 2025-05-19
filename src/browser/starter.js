@@ -39,6 +39,7 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
  *
  * - `disable_keyboard boolean` (false) - If the keyboard should be disabled.
  * - `disable_mouse boolean` (false) - If the mouse should be disabled.
+ * - `disable_speaker boolean` (false) - If the speaker should be disabled.
  *
  * - `network_relay_url string` (No network card) - The url of a server running
  *   websockproxy. See [networking.md](networking.md). Setting this will
@@ -56,13 +57,24 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
  *   ArrayBuffer, see below.
  * - `vga_bios Object` (No VGA bios) - VGA bios, see below.
  * - `hda Object` (No hard disk) - First hard disk, see below.
+ * - `hdb Object` (No hard disk) - Second hard disk, see below.
  * - `fda Object` (No floppy disk) - First floppy disk, see below.
+ * - `fdb Object` (No floppy disk) - Second floppy disk, see below.
  * - `cdrom Object` (No CD) - See below.
  *
+ * - `boot_order number` - Boot order of the first 4 devices: 
+ *   - BOOT_ORDER_FD_FIRST - Boot from floppy first
+ *   - BOOT_ORDER_HD_FIRST - Boot from hard disk first
+ *   - BOOT_ORDER_CD_FIRST - Boot from CD-ROM first
+ *
+ * - `fastboot boolean` (false) - If the BIOS should skip the POST (Power-On Self Test).
+ *
+ * - `multiboot Object` - A multiboot kernel image, see below.
  * - `bzimage Object` - A Linux kernel image to boot (only bzimage format), see below.
  * - `initrd Object` - A Linux ramdisk image, see below.
  * - `bzimage_initrd_from_filesystem boolean` - Automatically fetch bzimage and
  *    initrd from the specified `filesystem`.
+ * - `cmdline string` - Command line parameters passed to the bzimage.
  *
  * - `initial_state Object` (Normal boot) - An initial state to load, see
  *   [`restore_state`](#restore_statearraybuffer-state) and below.
@@ -74,6 +86,11 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
  *   that will receive and send data to the emulated serial terminal.
  *   Alternatively the serial terminal can also be accessed programatically,
  *   see [serial.html](../examples/serial.html).
+ * - `serial_container_xtermjs Element` (No xterm.js terminal) - An HTML element
+ *   for the xterm.js terminal that will be used for the emulated serial terminal.
+ * - `uart1 Object` - Configuration for the first serial port.
+ * - `uart2 Object` - Configuration for the second serial port.
+ * - `uart3 Object` - Configuration for the third serial port.
  *
  * - `screen_container HTMLElement` (No screen) - An HTMLElement. This should
  *   have a certain structure, see [basic.html](../examples/basic.html). Only
@@ -82,6 +99,20 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
  * - `screen Object` (No screen) - An object with the following properties:
  *   - `container HTMLElement` - An HTMLElement, see above.
  *   - `scale` (1) - Set initial scale_x and scale_y, if 0 disable automatic upscaling and dpi-adaption
+ * - `screen_options Object` - Additional options for the screen.
+ *
+ * - `acpi boolean` - Enable ACPI.
+ * - `disable_jit boolean` - Disable the JIT compiler.
+ * - `preserve_mac_from_state_image boolean` - Preserve the MAC address when loading a state image.
+ * - `mac_address_translation boolean` - Translate the MAC address.
+ * - `cpuid_level number` - CPUID level.
+ * - `virtio_balloon boolean` - Enable virtio balloon device.
+ * - `virtio_console boolean` - Enable virtio console device.
+ * - `virtio_net boolean` - Enable virtio network device.
+ *
+ * - `log_level number` - Set the log level (0-3).
+ * - `wasm_fn Function` - Custom function to load the WebAssembly binary.
+ * - `wasm_path string` - Path to the WebAssembly binary.
  *
  * ***
  *
@@ -120,12 +151,53 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
  *   ```
  *
  * @param {{
+      memory_size: (number|undefined),
+      vga_memory_size: (number|undefined),
+      autostart: (boolean|undefined),
       disable_mouse: (boolean|undefined),
       disable_keyboard: (boolean|undefined),
-      wasm_fn: (Function|undefined),
+      disable_speaker: (boolean|undefined),
+      network_relay_url: (string|undefined),
+      net_device: (Object|undefined),
+      net_devices: (Array<Object>|undefined),
+      bios: (Object|undefined),
+      vga_bios: (Object|undefined),
+      hda: (Object|undefined),
+      hdb: (Object|undefined),
+      fda: (Object|undefined),
+      fdb: (Object|undefined),
+      cdrom: (Object|undefined),
+      boot_order: (number|undefined),
+      fastboot: (boolean|undefined),
+      multiboot: (Object|undefined),
+      bzimage: (Object|undefined),
+      initrd: (Object|undefined),
+      bzimage_initrd_from_filesystem: (boolean|undefined),
+      cmdline: (string|undefined),
+      initial_state: (Object|undefined),
+      filesystem: (Object|undefined),
+      serial_container: (HTMLTextAreaElement|undefined),
+      serial_container_xtermjs: (Element|undefined),
+      uart1: (Object|undefined),
+      uart2: (Object|undefined),
+      uart3: (Object|undefined),
+      screen_container: (HTMLElement|undefined),
       screen: ({
+          container: (HTMLElement|undefined),
           scale: (number|undefined),
-      } | undefined),
+      }|undefined),
+      screen_options: (Object|undefined),
+      acpi: (boolean|undefined),
+      disable_jit: (boolean|undefined),
+      preserve_mac_from_state_image: (boolean|undefined),
+      mac_address_translation: (boolean|undefined),
+      cpuid_level: (number|undefined),
+      virtio_balloon: (boolean|undefined),
+      virtio_console: (boolean|undefined),
+      virtio_net: (boolean|undefined),
+      log_level: (number|undefined),
+      wasm_fn: (Function|undefined),
+      wasm_path: (string|undefined),
     }} options
  * @constructor
  */
