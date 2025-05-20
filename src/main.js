@@ -1,12 +1,15 @@
 import { CPU } from "./cpu.js";
 import { save_state, restore_state } from "./state.js";
+import { BusConnector } from "./bus.js";
 export { V86 } from "./browser/starter.js";
 
 /**
  * @constructor
+ * @param {BusConnector} bus
  * @param {Object=} wasm
+ * @param {string} [yield_path]
  */
-export function v86(bus, wasm)
+export function v86(bus, wasm, yield_path)
 {
     /** @type {boolean} */
     this.running = false;
@@ -25,7 +28,7 @@ export function v86(bus, wasm)
 
     this.bus = bus;
 
-    this.register_yield();
+    this.register_yield(yield_path);
 }
 
 v86.prototype.run = function()
@@ -118,10 +121,28 @@ else if(typeof Worker !== "undefined")
 {
     // XXX: This has a slightly lower throughput compared to window.postMessage
 
-    v86.prototype.register_yield = function()
+    function the_worker()
     {
-        const url = new URL('./yield.js', import.meta.url);
-        this.worker = new Worker(url);
+        let timeout;
+        globalThis.onmessage = function(e)
+        {
+            const t = e.data.t;
+            timeout = timeout && clearTimeout(timeout);
+            if(t < 1) postMessage(e.data.tick);
+            else timeout = setTimeout(() => postMessage(e.data.tick), t);
+        };
+    }
+
+    v86.prototype.register_yield = function(yield_path)
+    {
+        if (typeof yield_path === "string" && yield_path.length > 0) {
+            this.worker = new Worker(yield_path);
+        } else {
+            const url = URL.createObjectURL(new Blob(["(" + the_worker.toString() + ")()"], { type: "text/javascript" }));
+            this.worker = new Worker(url);
+            URL.revokeObjectURL(url);
+        }
+
         this.worker.onmessage = e => this.yield_callback(e.data);
     };
 

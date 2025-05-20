@@ -198,6 +198,7 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
       log_level: (number|undefined),
       wasm_fn: (Function|undefined),
       wasm_path: (string|undefined),
+      yield_path: (string|undefined),
     }} options
  * @constructor
  */
@@ -343,7 +344,7 @@ export function V86(options)
             wasm_memory = exports.memory;
             exports["rust_init"]();
 
-            const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
+            const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table }, options.yield_path);
             cpu = emulator.cpu;
 
             this.continue_init(emulator, options);
