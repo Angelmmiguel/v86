@@ -135,8 +135,8 @@ else if(typeof Worker !== "undefined")
 
     v86.prototype.register_yield = function(yield_path)
     {
-        if (typeof yield_path === "string" && yield_path.length > 0) {
-            this.worker = new Worker(yield_path);
+        if ((typeof yield_path === "string" && yield_path.length > 0) || yield_path instanceof URL) {
+            this.worker = new Worker(yield_path.toString());
         } else {
             const url = URL.createObjectURL(new Blob(["(" + the_worker.toString() + ")()"], { type: "text/javascript" }));
             this.worker = new Worker(url);
