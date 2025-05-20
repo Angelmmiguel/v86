@@ -195,7 +195,6 @@ build/libv86-debug.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 
 build/libv86.d.mts: $(TSUP) build/libv86.mjs
 	$(TSUP) --entry.libv86 ./src/browser/starter.js --dts --dts-only -d ./build --format esm
-	mv ./build/libv86.d.ts ./build/libv86.d.mts
 
 # Install dependencies for tsup
 $(TSUP):
