@@ -528,6 +528,8 @@ if(typeof XMLHttpRequest === "undefined" ||
     typeof process !== "undefined" && process.versions && process.versions.node)
 {
     let fs;
+    let http;
+    let https;
 
     /**
      * @param {string} filename
@@ -536,59 +538,165 @@ if(typeof XMLHttpRequest === "undefined" ||
      */
     load_file = async function(filename, options, n_tries)
     {
-        if(!fs)
+        const is_url = filename.startsWith("http://") || filename.startsWith("https://");
+
+        if(is_url)
         {
-            // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
-            fs = await import("node:" + "fs/promises");
-        }
-
-        if(options.range)
-        {
-            dbg_assert(!options.as_json);
-
-            const fd = await fs["open"](filename, "r");
-
-            const length = options.range.length;
-            const buffer = Buffer.allocUnsafe(length);
-
-            try
+            if(!http)
             {
-                /** @type {{ bytesRead: Number }} */
-                const result = await fd["read"]({
-                    buffer,
-                    position: options.range.start
+                http = await import("node:" + "http");
+                https = await import("node:" + "https");
+            }
+
+            try 
+            {
+                const protocol = filename.startsWith("https") ? https : http;
+                const url = new URL(filename);
+                const request_options = {
+                    headers: options.headers ? { ...options.headers } : {}
+                };
+
+                if(options.range)
+                {
+                    const start = options.range.start;
+                    const end = start + options.range.length - 1;
+                    request_options.headers["Range"] = `bytes=${start}-${end}`;
+                }
+
+                const response = await new Promise((resolve, reject) => {
+                    const req = protocol["get"](url, request_options, resolve);
+                    req.on("error", reject);
+                    req.end();
                 });
-                dbg_assert(result.bytesRead === length);
-            }
-            finally
-            {
-                await fd["close"]();
-            }
 
-            options.done && options.done(new Uint8Array(buffer));
+                if(response["statusCode"] !== 200 && response["statusCode"] !== 206)
+                {
+                    throw new Error(`HTTP error: ${response["statusCode"]}`);
+                }
+
+                const buffer = await new Promise((resolve, reject) => {
+                    const chunks = [];
+                    let received_size = 0;
+                    const total_size = parseInt(response.headers["content-length"] || "0", 10);
+                    
+                    response.on("data", (chunk) => {
+                        chunks.push(chunk);
+                        received_size += chunk.length;
+                        
+                        if(options.progress)
+                        {
+                            options.progress({
+                                target: {
+                                    status: response["statusCode"],
+                                },
+                                loaded: received_size,
+                                total: total_size,
+                                lengthComputable: total_size > 0
+                            });
+                        }
+                    });
+                    
+                    response.on("end", () => resolve(Buffer["concat"](chunks)));
+                    response.on("error", reject);
+                });
+
+                const result = options.as_json 
+                    ? JSON.parse(buffer.toString()) 
+                    : new Uint8Array(buffer).buffer;
+                
+                options.done && options.done(result);
+            }
+            catch(err)
+            {
+                console.error("Error loading file from URL:", filename, err);
+                if(n_tries < 7) 
+                {
+                    const timeout = [1, 1, 2, 3, 5, 8, 13, 21][n_tries] || 34;
+                    await new Promise(resolve => setTimeout(resolve, 1000 * timeout));
+                    return load_file(filename, options, (n_tries || 0) + 1);
+                }
+                throw err;
+            }
         }
         else
         {
-            const o = {
-                encoding: options.as_json ? "utf-8" : null,
-            };
+            // Local file handling - existing code path
+            if(!fs)
+            {
+                fs = await import("node:" + "fs/promises");
+            }
 
-            const data = await fs["readFile"](filename, o);
-            const result = options.as_json ? JSON.parse(data) : new Uint8Array(data).buffer;
+            if(options.range)
+            {
+                dbg_assert(!options.as_json);
 
-            options.done(result);
+                const fd = await fs["open"](filename, "r");
+
+                const length = options.range.length;
+                const buffer = Buffer.allocUnsafe(length);
+
+                try
+                {
+                    /** @type {{ bytesRead: Number }} */
+                    const result = await fd["read"]({
+                        buffer,
+                        position: options.range.start
+                    });
+                    dbg_assert(result.bytesRead === length);
+                }
+                finally
+                {
+                    await fd["close"]();
+                }
+
+                options.done && options.done(new Uint8Array(buffer));
+            }
+            else
+            {
+                const o = {
+                    encoding: options.as_json ? "utf-8" : null,
+                };
+
+                const data = await fs["readFile"](filename, o);
+                const result = options.as_json ? JSON.parse(data) : new Uint8Array(data).buffer;
+
+                options.done(result);
+            }
         }
     };
 
     get_file_size = async function(path)
     {
-        if(!fs)
+        const is_url = path.startsWith("http://") || path.startsWith("https://");
+
+        if(is_url)
         {
-            // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
-            fs = await import("node:" + "fs/promises");
+            if(!http)
+            {
+                http = await import("node:" + "http");
+                https = await import("node:" + "https");
+            }
+
+            const protocol = path.startsWith("https") ? https : http;
+            const url = new URL(path);
+            
+            const response = await new Promise((resolve, reject) => {
+                const req = protocol["request"](url, { method: "HEAD" }, resolve);
+                req.on("error", reject);
+                req.end();
+            });
+
+            return parseInt(response.headers["content-length"] || "0", 10);
         }
-        const stat = await fs["stat"](path);
-        return stat.size;
+        else
+        {
+            if(!fs)
+            {
+                fs = await import("node:" + "fs/promises");
+            }
+            const stat = await fs["stat"](path);
+            return stat.size;
+        }
     };
 }
 else
