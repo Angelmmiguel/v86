@@ -5,6 +5,7 @@ import { dbg_assert, dbg_trace, dbg_log, set_log_level } from "../log.js";
 import * as print_stats from "./print_stats.js";
 import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
+import { EEXIST, ENOENT } from "../../lib/9p.js";
 
 import { SpeakerAdapter } from "./speaker.js";
 import { NetworkAdapter } from "./network.js";
@@ -20,135 +21,11 @@ import { InBrowserNetworkAdapter } from "./inbrowser_network.js";
 import { MemoryFileStorage, ServerFileStorageWrapper, LocalFileStorage } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
 import { FS } from "../../lib/filesystem.js";
-import { EEXIST, ENOENT } from "../../lib/9p.js";
-
 
 /**
  * Constructor for emulator instances.
  *
- * Usage: `new V86(options);`
- *
- * Options can have the following properties (all optional, default in parenthesis):
- *
- * - `memory_size number` (64 * 1024 * 1024) - The memory size in bytes, should
- *   be a power of 2.
- * - `vga_memory_size number` (8 * 1024 * 1024) - VGA memory size in bytes.
- *
- * - `autostart boolean` (false) - If emulation should be started when emulator
- *   is ready.
- *
- * - `disable_keyboard boolean` (false) - If the keyboard should be disabled.
- * - `disable_mouse boolean` (false) - If the mouse should be disabled.
- * - `disable_speaker boolean` (false) - If the speaker should be disabled.
- *
- * - `network_relay_url string` (No network card) - The url of a server running
- *   websockproxy. See [networking.md](networking.md). Setting this will
- *   enable an emulated ne2k network card. Only provided for backwards
- *   compatibility, use `net_device` instead.
- *
- * - `net_device Object` (null) - An object with the following properties:
- *   - `relay_url: string` - See above
- *   - `type: "ne2k" | "virtio"` - the type of the emulated cards
- *
- * - `net_devices Array<Object>` - Like `net_device`, but allows specifying
- *   more than one network card (up to 4). (currently not implemented)
- *
- * - `bios Object` (No bios) - Either a url pointing to a bios or an
- *   ArrayBuffer, see below.
- * - `vga_bios Object` (No VGA bios) - VGA bios, see below.
- * - `hda Object` (No hard disk) - First hard disk, see below.
- * - `hdb Object` (No hard disk) - Second hard disk, see below.
- * - `fda Object` (No floppy disk) - First floppy disk, see below.
- * - `fdb Object` (No floppy disk) - Second floppy disk, see below.
- * - `cdrom Object` (No CD) - See below.
- *
- * - `boot_order number` - Boot order of the first 4 devices: 
- *   - BOOT_ORDER_FD_FIRST - Boot from floppy first
- *   - BOOT_ORDER_HD_FIRST - Boot from hard disk first
- *   - BOOT_ORDER_CD_FIRST - Boot from CD-ROM first
- *
- * - `fastboot boolean` (false) - If the BIOS should skip the POST (Power-On Self Test).
- *
- * - `multiboot Object` - A multiboot kernel image, see below.
- * - `bzimage Object` - A Linux kernel image to boot (only bzimage format), see below.
- * - `initrd Object` - A Linux ramdisk image, see below.
- * - `bzimage_initrd_from_filesystem boolean` - Automatically fetch bzimage and
- *    initrd from the specified `filesystem`.
- * - `cmdline string` - Command line parameters passed to the bzimage.
- *
- * - `initial_state Object` (Normal boot) - An initial state to load, see
- *   [`restore_state`](#restore_statearraybuffer-state) and below.
- *
- * - `filesystem Object` (No 9p filesystem) - A 9p filesystem, see
- *   [filesystem.md](filesystem.md).
- *
- * - `serial_container HTMLTextAreaElement` (No serial terminal) - A textarea
- *   that will receive and send data to the emulated serial terminal.
- *   Alternatively the serial terminal can also be accessed programatically,
- *   see [serial.html](../examples/serial.html).
- * - `serial_container_xtermjs Element` (No xterm.js terminal) - An HTML element
- *   for the xterm.js terminal that will be used for the emulated serial terminal.
- * - `uart1 Object` - Configuration for the first serial port.
- * - `uart2 Object` - Configuration for the second serial port.
- * - `uart3 Object` - Configuration for the third serial port.
- *
- * - `screen_container HTMLElement` (No screen) - An HTMLElement. This should
- *   have a certain structure, see [basic.html](../examples/basic.html). Only
- *   provided for backwards compatibility, use `screen` instead.
- *
- * - `screen Object` (No screen) - An object with the following properties:
- *   - `container HTMLElement` - An HTMLElement, see above.
- *   - `scale` (1) - Set initial scale_x and scale_y, if 0 disable automatic upscaling and dpi-adaption
- * - `screen_options Object` - Additional options for the screen.
- *
- * - `acpi boolean` - Enable ACPI.
- * - `disable_jit boolean` - Disable the JIT compiler.
- * - `preserve_mac_from_state_image boolean` - Preserve the MAC address when loading a state image.
- * - `mac_address_translation boolean` - Translate the MAC address.
- * - `cpuid_level number` - CPUID level.
- * - `virtio_balloon boolean` - Enable virtio balloon device.
- * - `virtio_console boolean` - Enable virtio console device.
- * - `virtio_net boolean` - Enable virtio network device.
- *
- * - `log_level number` - Set the log level (0-3).
- * - `wasm_fn Function` - Custom function to load the WebAssembly binary.
- * - `wasm_path string` - Path to the WebAssembly binary.
- *
- * ***
- *
- * There are two ways to load images (`bios`, `vga_bios`, `cdrom`, `hda`, ...):
- *
- * - Pass an object that has a url. Optionally, `async: true` and `size:
- *   size_in_bytes` can be added to the object, so that sectors of the image
- *   are loaded on demand instead of being loaded before boot (slower, but
- *   strongly recommended for big files). In that case, the `Range: bytes=...`
- *   header must be supported on the server.
- *
- *   ```javascript
- *   // download file before boot
- *   bios: {
- *       url: "bios/seabios.bin"
- *   }
- *   // download file sectors as requested, size is required
- *   hda: {
- *       url: "disk/linux.iso",
- *       async: true,
- *       size: 16 * 1024 * 1024
- *   }
- *   ```
- *
- * - Pass an `ArrayBuffer` or `File` object as `buffer` property.
- *
- *   ```javascript
- *   // use <input type=file>
- *   bios: {
- *       buffer: document.all.hd_image.files[0]
- *   }
- *   // start with empty hard disk
- *   hda: {
- *       buffer: new ArrayBuffer(16 * 1024 * 1024)
- *   }
- *   ```
+ * For API usage, see v86.d.ts in the root of this repository.
  *
  * @param {{
       memory_size: (number|undefined),
@@ -217,7 +94,7 @@ export function V86(options)
     this.cpu_exception_hook = function(n) {};
 
     const bus = Bus.create();
-    const adapter_bus = this.bus = bus[0];
+    this.bus = bus[0];
     this.emulator_bus = bus[1];
 
     var cpu;
@@ -401,7 +278,6 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.cpuid_level = options.cpuid_level;
     settings.virtio_balloon = options.virtio_balloon;
     settings.virtio_console = options.virtio_console;
-    settings.virtio_net = options.virtio_net;
     settings.screen_options = options.screen_options;
 
     const relay_url = options.network_relay_url || options.net_device && options.net_device.relay_url;
@@ -890,8 +766,7 @@ V86.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
 };
 
 /**
- * Start emulation. Do nothing if emulator is running already. Can be
- * asynchronous.
+ * Start emulation. Do nothing if emulator is running already. Can be asynchronous.
  */
 V86.prototype.run = async function()
 {
@@ -919,7 +794,7 @@ V86.prototype.stop = async function()
 };
 
 /**
- * @ignore
+ * Free resources associated with this instance
  */
 V86.prototype.destroy = async function()
 {
@@ -943,8 +818,7 @@ V86.prototype.restart = function()
 };
 
 /**
- * Add an event listener (the emulator is an event emitter). A list of events
- * can be found at [events.md](events.md).
+ * Add an event listener (the emulator is an event emitter).
  *
  * The callback function gets a single argument which depends on the event.
  *
@@ -1058,6 +932,40 @@ V86.prototype.eject_fda = function()
 };
 
 /**
+ * Set the image inserted in the CD-ROM drive. Can be changed at runtime, as
+ * when physically changing the CD-ROM.
+ */
+V86.prototype.set_cdrom = async function(file)
+{
+    if(file.url && !file.async)
+    {
+        load_file(file.url, {
+            done: result =>
+            {
+                this.v86.cpu.devices.cdrom.set_cdrom(new SyncBuffer(result));
+            },
+        });
+    }
+    else
+    {
+        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
+        image.onload = () =>
+        {
+            this.v86.cpu.devices.cdrom.set_cdrom(image);
+        };
+        await image.load();
+    }
+};
+
+/**
+ * Eject the CD-ROM.
+ */
+V86.prototype.eject_cdrom = function()
+{
+    this.v86.cpu.devices.cdrom.eject();
+};
+
+/**
  * Send a sequence of scan codes to the emulated PS2 controller. A list of
  * codes can be found at http://stanislavs.org/helppc/make_codes.html.
  * Do nothing if there is no keyboard controller.
@@ -1074,7 +982,6 @@ V86.prototype.keyboard_send_scancodes = function(codes)
 
 /**
  * Send translated keys
- * @ignore
  */
 V86.prototype.keyboard_send_keys = function(codes)
 {
@@ -1085,8 +992,7 @@ V86.prototype.keyboard_send_keys = function(codes)
 };
 
 /**
- * Send text
- * @ignore
+ * Send text, assuming the guest OS uses a US keyboard layout
  */
 V86.prototype.keyboard_send_text = function(string)
 {
@@ -1097,9 +1003,7 @@ V86.prototype.keyboard_send_text = function(string)
 };
 
 /**
- * Download a screenshot.
- *
- * @ignore
+ * Download a screenshot (returns an <img> element, only works in browsers)
  */
 V86.prototype.screen_make_screenshot = function()
 {
@@ -1115,8 +1019,6 @@ V86.prototype.screen_make_screenshot = function()
  *
  * @param {number} sx
  * @param {number} sy
- *
- * @ignore
  */
 V86.prototype.screen_set_scale = function(sx, sy)
 {
@@ -1127,9 +1029,7 @@ V86.prototype.screen_set_scale = function(sx, sy)
 };
 
 /**
- * Go fullscreen.
- *
- * @ignore
+ * Go fullscreen (only browsers)
  */
 V86.prototype.screen_go_fullscreen = function()
 {
@@ -1171,20 +1071,21 @@ V86.prototype.screen_go_fullscreen = function()
 /**
  * Lock the mouse cursor: It becomes invisble and is not moved out of the
  * browser window.
- *
- * @ignore
  */
-V86.prototype.lock_mouse = function()
+V86.prototype.lock_mouse = async function()
 {
-    var elem = document.body;
+    const elem = document.body;
 
-    var fn = elem["requestPointerLock"] ||
-                elem["mozRequestPointerLock"] ||
-                elem["webkitRequestPointerLock"];
-
-    if(fn)
+    try
     {
-        fn.call(elem);
+        await elem.requestPointerLock({
+            unadjustedMovement: true,
+        });
+    }
+    catch(e)
+    {
+        // as per MDN, retry without unadjustedMovement option
+        await elem.requestPointerLock();
     }
 };
 
@@ -1193,27 +1094,28 @@ V86.prototype.lock_mouse = function()
  *
  * @param {boolean} enabled
  */
-V86.prototype.mouse_set_status = function(enabled)
+V86.prototype.mouse_set_enabled = function(enabled)
 {
     if(this.mouse_adapter)
     {
         this.mouse_adapter.emu_enabled = enabled;
     }
 };
+V86.prototype.mouse_set_status = V86.prototype.mouse_set_enabled;
 
 /**
  * Enable or disable sending keyboard events to the emulated PS2 controller.
  *
  * @param {boolean} enabled
  */
-V86.prototype.keyboard_set_status = function(enabled)
+V86.prototype.keyboard_set_enabled = function(enabled)
 {
     if(this.keyboard_adapter)
     {
         this.keyboard_adapter.emu_enabled = enabled;
     }
 };
-
+V86.prototype.keyboard_set_status = V86.prototype.keyboard_set_enabled;
 
 /**
  * Send a string to the first emulated serial terminal.
